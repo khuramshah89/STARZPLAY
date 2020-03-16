@@ -6,9 +6,10 @@ import com.starzplay.payment.payment.Model.PaymentMethod;
 import com.starzplay.payment.payment.Model.PaymentPlan;
 import com.starzplay.payment.payment.Repo.PaymentMethodRepository;
 import com.starzplay.payment.payment.Repo.PaymentPlanRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -21,6 +22,8 @@ import java.util.Optional;
 @Service
 public class PaymentServiceImp implements PaymentService {
 
+    Logger logger = LoggerFactory.getLogger(PaymentServiceImp.class);
+
     @Autowired
     PaymentMethodRepository methodRepository;
 
@@ -29,39 +32,54 @@ public class PaymentServiceImp implements PaymentService {
 
 
     @Override
-    @Transactional
     public void savePayment(Payment paymentList) {
-
-        paymentList.getPaymentMethods().forEach(method -> {
-            PaymentMethod paymentMethod = new PaymentMethod(method.getName(), method.getDisplayName(), method.getPaymentType());
-            methodRepository.save(paymentMethod);
-            method.getPaymentPlans().forEach(plan -> {
-                PaymentPlan paymentPlan = new PaymentPlan(plan.getNetAmount(), plan.getTaxAmount(), plan.getGrossAmount(), plan.getCurrency(), plan.getDuration(), paymentMethod);
-                planRepository.save(paymentPlan);
+        try {
+            paymentList.getPaymentMethods().forEach(method -> {
+                PaymentMethod paymentMethod = new PaymentMethod(method.getName(), method.getDisplayName(), method.getPaymentType());
+                methodRepository.save(paymentMethod);
+                method.getPaymentPlans().forEach(plan -> {
+                    PaymentPlan paymentPlan = new PaymentPlan(plan.getNetAmount(), plan.getTaxAmount(), plan.getGrossAmount(), plan.getCurrency(), plan.getDuration(), paymentMethod);
+                    planRepository.save(paymentPlan);
+                });
             });
-        });
+            logger.info("Payment method is successfully saved.");
+        } catch (RuntimeException e) {
+            throw new RuntimeException("Oops ! something went wrong while inserting record ");
+        }
     }
 
     @Override
     public void updatePayment(Payment payment, Long id) {
 
         if (!payment.getPaymentMethods().isEmpty()) {
-            PaymentMethod method = payment.getPaymentMethods().get(0);
-            PaymentPlan transientPlan = method.getPaymentPlans().get(0);
-            planRepository.findById(id).map(paymentPlan -> {
-                paymentPlan.setNetAmount(transientPlan.getNetAmount());
-                paymentPlan.setTaxAmount(transientPlan.getTaxAmount());
-                paymentPlan.setGrossAmount(transientPlan.getGrossAmount());
-                paymentPlan.setDuration(transientPlan.getDuration());
-                paymentPlan.setCurrency(transientPlan.getCurrency());
-                methodRepository.findById(paymentPlan.getId()).map(paymentMethod -> {
-                    paymentMethod.setName(method.getName());
-                    paymentMethod.setDisplayName(method.getDisplayName());
-                    paymentMethod.setPaymentType(method.getPaymentType());
-                    return methodRepository.save(paymentMethod);
+            try {
+                PaymentMethod method = payment.getPaymentMethods().get(0);
+                PaymentPlan transientPlan = method.getPaymentPlans().get(0);
+                planRepository.findById(id).map(paymentPlan -> {
+                    paymentPlan.setNetAmount(transientPlan.getNetAmount());
+                    paymentPlan.setTaxAmount(transientPlan.getTaxAmount());
+                    paymentPlan.setGrossAmount(transientPlan.getGrossAmount());
+                    paymentPlan.setDuration(transientPlan.getDuration());
+                    paymentPlan.setCurrency(transientPlan.getCurrency());
+                    methodRepository.findById(paymentPlan.getPaymentMethod().getPaymentId()).map(paymentMethod -> {
+                        paymentMethod.setName(method.getName());
+                        paymentMethod.setDisplayName(method.getDisplayName());
+                        paymentMethod.setPaymentType(method.getPaymentType());
+                        return methodRepository.save(paymentMethod);
+                    }).orElseThrow(() -> new RecordNotFound("Payment method not found for plan: " + id));
+                    return planRepository.save(paymentPlan);
                 }).orElseThrow(RecordNotFound::new);
-                return planRepository.save(paymentPlan);
-            }).orElseThrow(RecordNotFound::new);
+            } catch (RuntimeException re) {
+                if (re.getMessage() != null) {
+                    logger.error(re.getMessage());
+                    throw new RuntimeException(re.getMessage());
+                }
+                logger.error("Record not updated for plan id: " + id);
+                throw new RuntimeException("Oops ! something went wrong");
+            }
+            logger.info("Payment Method updated for plan Id: " + id);
+        } else {
+            logger.error("Payment method is empty");
         }
     }
 

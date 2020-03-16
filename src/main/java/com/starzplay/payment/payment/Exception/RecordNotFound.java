@@ -9,4 +9,8 @@ public class RecordNotFound extends RuntimeException {
         super("Record Not Found");
     }
 
+    public RecordNotFound(String msg) {
+        super(msg);
+    }
+
 }

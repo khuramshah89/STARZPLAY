@@ -2,18 +2,18 @@ package com.starzplay.payment.payment.Controller;
 
 import com.starzplay.payment.payment.DTO.Payment;
 import com.starzplay.payment.payment.Services.PaymentService;
+import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 
 /**
  * Created by Khuram on 3/13/2020.
@@ -21,6 +21,7 @@ import java.util.List;
 @RestController
 public class PaymentController {
 
+    Logger logger= LoggerFactory.getLogger(PaymentController.class);
 
     @Autowired
     PaymentService paymentService;
@@ -60,6 +61,7 @@ public class PaymentController {
     @PostMapping("/payment-methods")
     public ResponseEntity<String> addPayments(@RequestBody Payment payment) {
         try {
+            logger.info("Request to insert new payment method");
             paymentService.savePayment(payment);
             return new ResponseEntity<String>("Payment Inserted Successfully.", HttpStatus.OK);
         } catch (RuntimeException re) {
@@ -71,6 +73,7 @@ public class PaymentController {
     @PutMapping("/payment-methods")
     public ResponseEntity<Object> updatePayment(@RequestBody Payment payment, @RequestParam(value = "payment-methods") Long planId) {
         try {
+            logger.info("Request to update payment method for plan id: "+planId);
             paymentService.updatePayment(payment, planId);
             return ResponseEntity.ok("Payment Updated Successfully.");
         } catch (RuntimeException e) {
